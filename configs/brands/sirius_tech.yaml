@@ -1,1 +1,9 @@
-# Approved brand facts, services, voice, audience, and competitors will be defined here.
+approved_facts:
+- Sirius Tech develops autonomous agent architectures for mission-critical operations.
+- All factual statements must link to verifiable primary documentation.
+- Deterministic quality gates enforce continuous compliance before publication.
+company_name: Sirius Tech
+mission: Deliver verifiable, mission-critical AI agent workflows with deterministic
+  quality assurance.
+tagline: Evidence-Backed Enterprise AI & Autonomous Systems
+voice: Authoritative, objective, empirical, and transparent
