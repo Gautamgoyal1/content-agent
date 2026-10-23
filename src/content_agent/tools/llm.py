@@ -20,7 +20,12 @@ class LLMClient:
     def is_available(self) -> bool:
         return bool(self.openai_key or self.groq_key)
 
-    def generate(self, prompt: str, system_prompt: str = "You are an expert technical writer and fact checker.") -> str | None:
+    def generate(
+        self,
+        prompt: str,
+        system_prompt: str = "You are an expert technical writer and fact checker.",
+        max_tokens: int = 4096,
+    ) -> str | None:
         """Call external LLM API if configured."""
         if not self.is_available:
             return None
@@ -37,7 +42,7 @@ class LLMClient:
             model = "openai/gpt-oss-120b"
 
         try:
-            with httpx.Client(timeout=25.0) as client:
+            with httpx.Client(timeout=60.0) as client:
                 res = client.post(
                     url,
                     headers={"Authorization": f"Bearer {key}"},
@@ -48,6 +53,7 @@ class LLMClient:
                             {"role": "user", "content": prompt},
                         ],
                         "temperature": 0.4,
+                        "max_tokens": max_tokens,
                     },
                 )
                 if res.status_code == 200:
@@ -67,6 +73,7 @@ class LLMClient:
                                     {"role": "user", "content": prompt},
                                 ],
                                 "temperature": 0.4,
+                                "max_tokens": max_tokens,
                             },
                         )
                         if res2.status_code == 200:

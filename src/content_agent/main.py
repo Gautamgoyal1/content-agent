@@ -360,7 +360,13 @@ HTML_CONTENT = r"""<!DOCTYPE html>
 
           <div class="form-group">
             <label for="wordCount">Target Word Count</label>
-            <input type="number" id="wordCount" name="wordCount" min="100" max="3000" step="50" value="500">
+            <input type="number" id="wordCount" name="wordCount" min="100" max="5000" step="50" value="2000">
+            <div class="presets" style="margin-top:6px;">
+              <span class="chip" onclick="setWordCount(500)">500w</span>
+              <span class="chip" onclick="setWordCount(1000)">1000w</span>
+              <span class="chip" onclick="setWordCount(1500)">1500w</span>
+              <span class="chip" onclick="setWordCount(2000)">2000w (Deep-Dive)</span>
+            </div>
           </div>
 
           <button type="submit" id="submitBtn" class="btn btn-primary">
@@ -460,6 +466,10 @@ HTML_CONTENT = r"""<!DOCTYPE html>
 
     function setTopic(text) {
       document.getElementById('topic').value = text;
+    }
+
+    function setWordCount(num) {
+      document.getElementById('wordCount').value = num;
     }
 
     function switchTab(name) {

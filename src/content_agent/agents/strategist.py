@@ -29,6 +29,19 @@ class StrategistAgent:
         source_ids = [s.id for s in sources]
         research_brief = self._build_research_brief(brief, sources)
 
+        # Determine target section count and word distribution based on desired word count
+        target_words = brief.target_word_count
+        if target_words >= 1800:
+            recommended_sections = 6
+        elif target_words >= 1200:
+            recommended_sections = 5
+        elif target_words >= 700:
+            recommended_sections = 4
+        else:
+            recommended_sections = 3
+
+        per_section_words = max(120, target_words // recommended_sections)
+
         # 1. Attempt LLM-assisted evidence-based outline if available
         if self.llm_client.is_available:
             try:
@@ -37,17 +50,19 @@ class StrategistAgent:
                     f"Create an authoritative, evidence-based editorial outline for a {brief.content_type.replace('_', ' ')}.\n"
                     f"Topic: '{brief.topic}'\n"
                     f"Target Audience: '{brief.target_audience}'\n"
-                    f"Target Word Count: {brief.target_word_count}\n\n"
+                    f"Target Word Count: {brief.target_word_count} words in total\n\n"
                     f"Verified Research Sources:\n{sources_str}\n\n"
                     "EDITORIAL REQUIREMENTS:\n"
                     "1. Avoid generic cliché titles (do NOT use 'Demystifying...', 'The Ultimate Guide to...', 'A Deep Dive into...').\n"
-                    "2. Formulate 3 to 5 distinct analytical sections with specific descriptive headings (no generic 'Introduction' or 'Conclusion').\n"
-                    "3. For each section, specify: heading, specific analytical purpose, assigned source citation IDs ([1], [2], etc.), and concrete facts/tradeoffs to cover.\n"
-                    "4. Output STRICT JSON only with keys: title, angle_or_thesis, section_plans (array of objects with keys: heading, purpose, assigned_source_ids, key_facts_to_integrate, estimated_words).\n"
+                    f"2. Formulate {recommended_sections} distinct, in-depth analytical sections with specific descriptive headings (no generic 'Introduction' or 'Conclusion').\n"
+                    f"3. Each section must budget approximately {per_section_words} words to reach the full target of {brief.target_word_count} words without cutting short.\n"
+                    "4. For each section, specify: heading, specific analytical purpose, assigned source citation IDs ([1], [2], etc.), and concrete facts/tradeoffs to cover.\n"
+                    "5. Output STRICT JSON only with keys: title, angle_or_thesis, section_plans (array of objects with keys: heading, purpose, assigned_source_ids, key_facts_to_integrate, estimated_words).\n"
                 )
                 raw_out = self.llm_client.generate(
                     prompt,
                     system_prompt="You are a seasoned editorial strategist. Output valid JSON matching the requested schema only.",
+                    max_tokens=2048,
                 )
                 if raw_out:
                     match = re.search(r"(\{.*\})", raw_out, re.DOTALL)
@@ -61,7 +76,7 @@ class StrategistAgent:
                                     purpose=sp.get("purpose", f"Analyze implications of {brief.topic}"),
                                     assigned_source_ids=[int(x) for x in sp.get("assigned_source_ids", source_ids[:1]) if int(x) in source_ids] or source_ids[:1],
                                     key_facts_to_integrate=sp.get("key_facts_to_integrate", []),
-                                    estimated_words=int(sp.get("estimated_words", brief.target_word_count // max(1, len(data.get("section_plans", []))))),
+                                    estimated_words=int(sp.get("estimated_words", per_section_words)),
                                 )
                             )
                         if len(plans) >= 3:
@@ -82,7 +97,7 @@ class StrategistAgent:
                 pass
 
         # 2. High-quality deterministic evidence-grounded fallback
-        word_budget = max(80, brief.target_word_count // 4)
+        word_budget = per_section_words
 
         if brief.content_type == "press_release":
             title = f"FOR IMMEDIATE RELEASE: Operational Benchmarks Establish New Standards for {topic_title}"
@@ -150,6 +165,23 @@ class StrategistAgent:
                     estimated_words=word_budget,
                 ),
             ]
+            if target_words >= 1500:
+                plans.extend([
+                    SectionPlan(
+                        heading="Risk Analysis, Governance, and Telemetry Verification",
+                        purpose="Examine regulatory, compliance, and enterprise governance considerations.",
+                        assigned_source_ids=source_ids[:2] if len(source_ids) >= 2 else source_ids,
+                        key_facts_to_integrate=["Telemetry audit trails and real-time observability."],
+                        estimated_words=word_budget,
+                    ),
+                    SectionPlan(
+                        heading="Long-Term Operational Lifecycle & Strategic Outlook",
+                        purpose="Synthesize multi-year total cost of ownership and strategic recommendations.",
+                        assigned_source_ids=source_ids[:1],
+                        key_facts_to_integrate=["Future architectural patterns and scalability planning."],
+                        estimated_words=word_budget,
+                    ),
+                ])
         else:  # blog
             title = f"Rethinking {topic_title}: What the Evidence Shows for {brief.target_audience}"
             thesis = f"Examining practical engineering tradeoffs in {brief.topic} beyond industry hype, grounded in verifiable research."
@@ -183,6 +215,23 @@ class StrategistAgent:
                     estimated_words=word_budget,
                 ),
             ]
+            if target_words >= 1500:
+                plans.extend([
+                    SectionPlan(
+                        heading="Deep-Dive: Implementation Pitfalls & Operational Diagnostics",
+                        purpose="Examine concrete debugging scenarios, configuration landmines, and observability telemetry.",
+                        assigned_source_ids=source_ids[:2] if len(source_ids) >= 2 else source_ids,
+                        key_facts_to_integrate=["Diagnostics and failure mitigation strategies."],
+                        estimated_words=word_budget,
+                    ),
+                    SectionPlan(
+                        heading="The Road Ahead: Strategic Architecture & Pragmatic Takeaways",
+                        purpose="Provide actionable conclusions and forward-looking engineering recommendations.",
+                        assigned_source_ids=source_ids[:1],
+                        key_facts_to_integrate=["Strategic execution checklist."],
+                        estimated_words=word_budget,
+                    ),
+                ])
 
         if revision_count > 0:
             plans.append(

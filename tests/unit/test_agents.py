@@ -54,3 +54,32 @@ def test_editor_agent():
     short_draft = "# Title\nShort draft text [1].\n## References & Verified Sources\n- [1] S1"
     polished = editor.polish_draft(short_draft, brief)
     assert len(polished.split()) > len(short_draft.split())
+
+
+def test_2000_word_scaling_and_sentence_completion():
+    brief = ContentBrief(topic="Distributed Tracing", content_type="blog", target_word_count=2000)
+    sources = [
+        SourceEvidence(id=1, title="S1", url="http://s1.org", snippet="Trace latency data"),
+        SourceEvidence(id=2, title="S2", url="http://s2.org", snippet="Span context propagation"),
+    ]
+
+    strategist = StrategistAgent()
+    outline = strategist.create_outline(brief, sources)
+
+    # Outline must plan 6 or more sections for 2000 words
+    assert len(outline.section_plans) >= 6
+    assert outline.estimated_word_count == 2000
+
+    writer = WriterAgent()
+    # Test sentence completion guard
+    dangling_text = "Here is a section discussing architecture. The system ensures high throughput and low"
+    completed = writer._ensure_complete_sentences(dangling_text)
+    assert completed.endswith(".")
+    assert "low." in completed or completed.endswith("architecture.")
+
+    # Test full draft generation for 2000 words
+    title, body, used_llm = writer.write_draft(brief, outline, sources)
+    assert len(body.split()) >= 300
+    assert "## References & Verified Sources" in body
+    assert body.strip().endswith("Trace latency data") or body.strip().endswith("Span context propagation")
+

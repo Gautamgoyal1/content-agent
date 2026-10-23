@@ -91,7 +91,7 @@ class EditorAgent:
         if self.llm_client.is_available and iteration_count > 0:
             feedback_str = "; ".join(feedback_items) if feedback_items else "Vary sentence length, eliminate robotic cadence, maintain all citations."
             prompt = (
-                f"You are a master technical copy editor. Polish this draft excerpt to achieve natural, authentic human cadence.\n\n"
+                f"You are a master technical copy editor. Polish this draft to achieve natural, authentic human cadence.\n\n"
                 f"Audience: {brief.target_audience}\n"
                 f"Specific QA Feedback to resolve: {feedback_str}\n\n"
                 "EDITING CONSTRAINTS:\n"
@@ -99,27 +99,37 @@ class EditorAgent:
                 "2. Keep EVERY bracketed citation index (like [1], [2], [3]) EXACTLY where factual assertions occur. Do not drop or relocate citations.\n"
                 "3. Vary sentence rhythms sharply: pair short declarative sentences with nuanced analytical clauses.\n"
                 "4. Strip any remaining AI clichés, filler phrases, or circular topic sentences.\n"
-                "5. Return ONLY the edited markdown text (do not include introductory or concluding conversational chat).\n\n"
-                f"Draft Text to Polish:\n{cleaned_body[:3500]}"
+                "5. Ensure all sentences and thoughts are 100% complete. Never cut off in the middle of a sentence.\n"
+                "6. Return ONLY the edited markdown text (do not include introductory or concluding conversational chat).\n\n"
+                f"Draft Text to Polish:\n{cleaned_body}"
             )
 
             candidate_polished = self.llm_client.generate(
                 prompt,
                 system_prompt="You are a precise, human-oriented copy editor. Return the polished markdown only.",
+                max_tokens=4096,
             )
 
             if candidate_polished and "## " in candidate_polished:
                 # Clean candidate
                 cand_clean = self._clean_cliches(candidate_polished.strip())
+                if cand_clean and cand_clean[-1] not in ".!?\"'":
+                    last_p = max(cand_clean.rfind("."), cand_clean.rfind("!"), cand_clean.rfind("?"))
+                    if last_p > 120:
+                        cand_clean = cand_clean[:last_p + 1]
+                    else:
+                        cand_clean += "."
+
                 cand_citations = self._count_citations(cand_clean)
                 cand_words = len(cand_clean.split())
 
                 # REGRESSION GUARD:
-                # Do not accept candidate if it dropped more than 30% of citations or lost more than 35% of length
+                # Do not accept candidate if it dropped more than 30% of citations or lost significant length
                 citation_ratio = cand_citations / max(1, initial_citations)
                 word_ratio = cand_words / max(1, initial_words)
 
-                if citation_ratio >= 0.70 and word_ratio >= 0.65:
+                min_word_ratio = 0.80 if initial_words >= 1000 else 0.65
+                if citation_ratio >= 0.70 and word_ratio >= min_word_ratio:
                     cleaned_body = cand_clean
 
         # 3. Word count check & targeted expansion/compression

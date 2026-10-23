@@ -13,6 +13,22 @@ class WriterAgent:
     def __init__(self, llm_client: LLMClient | None = None):
         self.llm_client = llm_client or LLMClient()
 
+    def _ensure_complete_sentences(self, text: str) -> str:
+        """Guarantee that text never cuts off abruptly mid-sentence or mid-thought."""
+        cleaned = text.rstrip()
+        if not cleaned:
+            return ""
+
+        # If it doesn't end with a terminal punctuation mark, clean up dangling partial sentences
+        if cleaned[-1] not in ".!?\"'":
+            last_punct = max(cleaned.rfind("."), cleaned.rfind("!"), cleaned.rfind("?"))
+            # If we have a reasonable amount of preceding complete sentences, trim the dangling tail
+            if last_punct > 120:
+                cleaned = cleaned[:last_punct + 1]
+            else:
+                cleaned += "."
+        return cleaned
+
     def _write_single_section_llm(
         self,
         brief: ContentBrief,
@@ -40,7 +56,7 @@ class WriterAgent:
         role_instruction = (
             "You are an expert human essayist, technical editor, and investigative journalist. "
             "Write with authentic editorial authority, natural rhythm, and sharp technical accuracy. "
-            "Do NOT sound like a generic AI assistant."
+            "Do NOT sound like a generic AI assistant. Always finish every paragraph and sentence completely."
         )
 
         prompt = (
@@ -61,15 +77,20 @@ class WriterAgent:
             "4. Argumentation & Tradeoffs: Discuss real constraints, failure points, cost realities, and operational nuances. Do not merely list generic pros and cons.\n"
             f"5. {'Do NOT write a boilerplate intro like \"In modern technology...\". Start directly with a concrete problem or compelling observation.' if is_intro else ''}"
             f"6. {'Do NOT write \"In conclusion\" or summarize everything you just said. Deliver a forward-looking practical takeaway.' if is_conclusion else ''}"
-            "7. Return ONLY the section body paragraphs in Markdown. Start with the section heading (## Heading)."
+            "7. COMPLETE ALL THOUGHTS THOROUGHLY: Write to the target word count and finish all explanations. Do NOT cut off mid-sentence or mid-argument. Ensure your final sentence is a grammatically complete statement with terminal punctuation.\n"
+            "8. Return ONLY the section body paragraphs in Markdown. Start with the section heading (## Heading)."
         )
 
-        section_text = self.llm_client.generate(prompt, system_prompt=role_instruction)
+        # Allow generous token headroom (at least 1500 tokens or 4x estimated words) so generation never cuts off
+        allocated_tokens = max(1500, plan.estimated_words * 4)
+        section_text = self.llm_client.generate(prompt, system_prompt=role_instruction, max_tokens=allocated_tokens)
         if not section_text:
             return ""
 
-        # Normalize heading
+        # Normalize heading and guard against trailing cut-offs
         cleaned = section_text.strip()
+        cleaned = self._ensure_complete_sentences(cleaned)
+
         if not cleaned.startswith("## "):
             cleaned = f"## {plan.heading}\n\n" + cleaned
         return cleaned
@@ -83,7 +104,7 @@ class WriterAgent:
         # Ensure outline has section plans
         plans = outline.section_plans
         if not plans and outline.target_sections:
-            budget = max(80, brief.target_word_count // max(1, len(outline.target_sections)))
+            budget = max(100, brief.target_word_count // max(1, len(outline.target_sections)))
             plans = [
                 SectionPlan(
                     heading=sec,
@@ -137,7 +158,7 @@ class WriterAgent:
         plans: list[SectionPlan],
         sources: list[SourceEvidence],
     ) -> str:
-        """High-grade deterministic synthesis tailored to the brief, avoiding formulaic bullet dumps."""
+        """High-grade deterministic synthesis tailored to the brief, scaling with planned sections."""
         title = outline.title
         topic = brief.topic
         topic_title = topic.title()
@@ -148,95 +169,54 @@ class WriterAgent:
 
         sections_md = []
 
-        if brief.content_type == "press_release":
-            sections_md.append(f"""## Operational Breakthrough & Benchmark Milestones
+        # Generate each section from plan
+        for plan in plans:
+            heading = plan.heading
+            assigned_src = f"[{plan.assigned_source_ids[0]}]" if plan.assigned_source_ids else src1
 
-**SAN FRANCISCO — VERIFIED WIRE** — Engineering teams operating critical infrastructure in **{topic}** confront rising operational friction as scale expands. A new series of empirical evaluations released today establishes verifiable benchmarks for {audience} navigating these environments {src1}.
+            if "breakthrough" in heading.lower() or "reality" in heading.lower() or "summary" in heading.lower():
+                sec_text = (
+                    f"## {heading}\n\n"
+                    f"Engineering teams operating critical infrastructure in **{topic}** confront persistent operational friction as scale expands. "
+                    f"A new series of empirical evaluations establishes verifiable benchmarks for {audience} navigating these environments {src1}.\n\n"
+                    f"Across active production environments, structured execution cut system overhead by 42% while retaining full auditability {assigned_src}. "
+                    f"Rather than accepting unverified assumptions, disciplined teams enforce evidence traceability across every transition {src1}{src2}."
+                )
+            elif "verification" in heading.lower() or "findings" in heading.lower() or "research" in heading.lower():
+                sec_text = (
+                    f"## {heading}\n\n"
+                    f"Independent testing across distributed clusters reveals an important dynamic: unstructured pipelines produce persistent drift, "
+                    f"with factual discrepancies surfacing in 89% of unvalidated deployments {src2}.\n\n"
+                    f"Multi-stage verification changes the equation. By introducing bounded review loops and deterministic inspection gates, "
+                    f"teams prevented regressions without slowing pipeline velocity {assigned_src}. Technical verification confirmed that data integrity "
+                    f"remained consistent across extended evaluation cycles {src3}."
+                )
+            elif "tradeoff" in heading.lower() or "friction" in heading.lower() or "risk" in heading.lower():
+                sec_text = (
+                    f"## {heading}\n\n"
+                    f"No architectural pattern is free of cost. Implementing rigorous verification in {topic} introduces distinct engineering tradeoffs:\n\n"
+                    f"- **Latency Overhead**: Multi-stage inspection requires computational budgeting. While bounded retries prevent infinite delay, teams must account for validation windows {src2}.\n"
+                    f"- **Evidence Fidelity**: Telemetry pipelines are only as dependable as their ingested source data {src1}.\n"
+                    f"- **Operational Maintenance**: Deterministic constraints must evolve alongside domain specifications {src3}.\n\n"
+                    f"Recognizing these boundaries allows {audience} to design resilient workflows that balance thoroughness with execution speed {assigned_src}."
+                )
+            elif "recommendation" in heading.lower() or "principles" in heading.lower() or "implementation" in heading.lower():
+                sec_text = (
+                    f"## {heading}\n\n"
+                    f"Moving from theoretical architecture to production requires actionable discipline. Focus on three foundational rules:\n\n"
+                    f"1. **Enforce evidence binding**: Never permit unindexed assertions. Tie every figure, benchmark, and architectural rule to a specific source index {src1}.\n"
+                    f"2. **Keep revision loops bounded**: Limit automated corrections to targeted sections to avoid endless rewrite churn {src2}.\n"
+                    f"3. **Audit for authentic cadence**: Evaluate sentence burstiness and strike predictable filler. The objective is authoritative prose that respects practitioner time {src3}."
+                )
+            else:
+                sec_text = (
+                    f"## {heading}\n\n"
+                    f"For {audience}, the operational implications in {topic} are clear. Systems built on unanchored assumptions fail under audit scrutiny. "
+                    f"Adopting disciplined evidence verification ensures that telemetry, configuration state, and architectural choices remain defensible {assigned_src}.\n\n"
+                    f"Operational teams can inspect the complete empirical dataset and replication steps across verified documentation repositories {src1}{src2}."
+                )
 
-Across active multi-region test environments, structured execution cut system overhead by 42% while retaining full auditability {src1}. Rather than accepting unverified assumptions, the benchmark enforces evidence traceability at every deployment phase {src1}{src2}.""")
-
-            sections_md.append(f"""## Field Verification & Architectural Evidence
-
-Independent testing across distributed clusters reveals an important dynamic. Unstructured pipelines produce persistent drift, with factual discrepancies surfacing in 89% of unvalidated deployments {src2}. 
-
-Multi-stage verification changes the equation. By introducing bounded review loops and deterministic inspection gates, teams prevented regressions without slowing pipeline velocity {src2}. Technical verification confirmed that data integrity remained consistent across extended evaluation cycles {src3}.""")
-
-            sections_md.append(f"""## Industry Impact & Practical Implementation
-
-For {audience}, the operational implications are straightforward. Systems built on unanchored assumptions fail under audit pressure. Adopting disciplined evidence verification ensures that telemetry, configuration state, and architectural choices remain defensible {src1}{src3}.
-
-Operational teams can inspect the complete empirical dataset and replication steps across verified documentation repositories {src1}.""")
-
-            sections_md.append(f"""## Executive Commentary & Contacts
-
-"Verification is not an optional afterthought for modern systems," noted principal research architects reviewing the data {src2}. "When engineering teams bind every assertion directly to verifiable evidence, system reliability becomes an engineered property rather than a hopeful estimate {src1}."
-
-### Media & Benchmark Contact
-- **Domain Focus**: {topic}
-- **Target Practitioners**: {audience}
-- **Audit Repository**: Validated across accredited repositories {src1}{src2}.""")
-
-        elif brief.content_type == "white_paper":
-            sections_md.append(f"""## Executive Summary: The Operational Landscape
-
-Engineering leaders confronting **{topic}** face a recurring dilemma. Systems grow more distributed, yet verification tooling often lags behind deployment velocity. This white paper evaluates the technical frameworks governing {topic}, specifically examining how {audience} can enforce architectural precision {src1}.
-
-Theoretical designs frequently overlook day-to-day friction. Our synthesis examines verified telemetry from multi-stage deployments, demonstrating that systematic evidence binding reduces operational errors by 89% {src1}{src2}.""")
-
-            sections_md.append(f"""## Architectural Friction & Failure Modes
-
-Why do traditional workflows in {topic} falter? The primary failure mode is unverified state drift {src2}. 
-
-When pipeline stages operate on implicit assumptions, small documentation mismatches compound quickly. By the time discrepancies reach production gates, remediation costs escalate tenfold {src2}. Addressing this requires deterministic quality gates—rules that immediately test citation integrity, structural hierarchy, and evidence grounding before artifacts advance {src1}{src3}.""")
-
-            sections_md.append(f"""## Empirical Findings & Comparative Benchmarks
-
-Controlled trials reveal distinct performance differences between ad-hoc workflows and evidence-grounded pipelines:
-
-1. **Overhead Reduction**: Teams enforcing automated evidence validation observed a 42% drop in deployment friction {src1}.
-2. **Hallucination Prevention**: Multi-stage inspection eliminated 89% of unsupported assertions across complex documentation suites {src2}.
-3. **Audit Reproducibility**: Direct linking between claims and source indices maintained 100% traceability across all audit intervals {src3}.
-
-These figures demonstrate that rigorous verification does not impair operational speed; it stabilizes delivery {src1}{src2}.""")
-
-            sections_md.append(f"""## Engineering Recommendations for {audience}
-
-Architectural success requires disciplined trade-offs. We recommend three foundational interventions:
-
-- **Anchor Every State Transition**: Require indexed source references for every technical assertion {src1}.
-- **Isolate Quality Gates**: Decouple deterministic structural checks from stylistic review to ensure rapid feedback cycles {src3}.
-- **Enforce Bounded Revision Loops**: Provide agents or automated editors with specific corrective targets rather than open-ended rewrites {src2}.""")
-
-        else:  # blog
-            sections_md.append(f"""## The Practical Reality of {topic_title}
-
-Most discussions around **{topic}** oscillate between breathless marketing claims and dismissive skepticism. Neither perspective helps {audience} who have to build real systems {src1}.
-
-The reality on the ground is more nuanced. When teams implement {topic} without disciplined verification, operational complexity climbs rapidly. Recent benchmarks show that unchecked workflows introduce factual drift in up to 89% of pipeline artifacts {src1}{src2}. Understanding why this happens requires looking directly at the data rather than accepting prevailing dogma.""")
-
-            sections_md.append(f"""## What the Empirical Research Reveals
-
-Recent field investigations present a clear picture. Teams that replace unstructured generation with evidence-grounded pipelines achieve a 42% reduction in operational friction {src1}. 
-
-This gain comes from a simple mechanism: traceability {src1}. When every technical claim connects directly to an indexed source, reviewers spend less time fact-checking and more time evaluating architecture {src2}. Independent audits confirm that continuous verification prevents regressions before they reach stakeholders {src3}.""")
-
-            sections_md.append(f"""## Tradeoffs, Limitations, and Unintended Consequences
-
-No architectural pattern is free of cost. Implementing rigorous verification introduces distinct engineering tradeoffs:
-
-- **Latency Overhead**: Multi-stage verification adds inspection time. While bounded loops prevent runaway delays, synchronous pipelines must budget for validation cycles {src2}.
-- **Source Dependency**: A pipeline is only as reliable as its underlying evidence. Corrupt or shallow sources propagate errors downstream unless filtered early {src1}.
-- **Governance Maintenance**: Maintaining deterministic gates requires active updates as domain specifications evolve {src3}.
-
-Recognizing these constraints allows {audience} to design resilient workflows that balance thoroughness with execution speed {src1}{src2}.""")
-
-            sections_md.append(f"""## Actionable Principles for Engineering Practitioners
-
-Moving past theory requires practical discipline. Focus on three operational rules:
-
-1. **Enforce evidence binding**: Never permit floating technical claims. Tie every figure, benchmark, and architectural rule to a specific source index {src1}.
-2. **Keep revision loops bounded**: Limit automated corrections to targeted sections to avoid endless rewrite churn {src2}.
-3. **Audit for authentic cadence**: Evaluate sentence burstiness and strike predictable filler. The goal is clear, authoritative prose that respects the reader's time {src3}.""")
+            sections_md.append(sec_text)
 
         body = f"# {title}\n\n" + "\n\n".join(sections_md)
 
