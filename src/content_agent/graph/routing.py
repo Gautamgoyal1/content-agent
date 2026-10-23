@@ -30,6 +30,7 @@ from content_agent.validators.headings import validate_headings
 from content_agent.validators.url_check import validate_citations
 from content_agent.validators.duplicate_claims import validate_duplicate_claims
 from content_agent.validators.keyword_placement import validate_keyword_placement
+from content_agent.validators.ai_detector import validate_ai_content
 
 
 # Agent instances
@@ -247,6 +248,10 @@ def node_qa_auditor(state: ContentAgentState) -> dict:
     seo_results = seo_auditor.audit(draft, brief)
     checks.extend(seo_results)
 
+    # 7. AI Content Detection & Human Authenticity Gate
+    run_id = state.get("run_id", "run-audit")
+    checks.append(validate_ai_content(draft, content_id=run_id))
+
     passed_count = sum(1 for c in checks if c.passed)
     log.append(
         f"[QA Auditor] Executed {len(checks)} quality gates: {passed_count} passed, "
@@ -315,6 +320,19 @@ def node_quality_decision_agent(state: ContentAgentState) -> dict:
                 decision = QualityDecision(
                     action="export",
                     rationale="Non-critical heading warning retained after max retries. Allowing export with annotation.",
+                )
+        elif "AI Content & Human Likeness" in check_names:
+            if iter_count < max_retries:
+                decision = QualityDecision(
+                    action="invoke_editor",
+                    rationale="AI content detector detected high artificial likelihood. Invoking editor to humanize cadence and remove clichés.",
+                    target_issues=["AI Content & Human Likeness"],
+                    action_description="Humanizing prose and breaking robotic cadence.",
+                )
+            else:
+                decision = QualityDecision(
+                    action="export",
+                    rationale=f"Humanizing revisions applied ({iter_count} cycles). Proceeding with diagnostic detector score.",
                 )
         elif "Word Count Target" in check_names:
             if iter_count < max_retries:

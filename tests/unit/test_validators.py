@@ -7,6 +7,7 @@ from content_agent.validators.headings import validate_headings
 from content_agent.validators.url_check import validate_citations
 from content_agent.validators.duplicate_claims import validate_duplicate_claims
 from content_agent.validators.keyword_placement import validate_keyword_placement
+from content_agent.validators.ai_detector import validate_ai_content
 
 
 def test_validate_word_count():
@@ -81,3 +82,23 @@ def test_validate_keyword_placement():
     good_text = "# Cloud Observability in Modern Systems\nUnderstanding cloud observability requires telemetry data."
     res = validate_keyword_placement(good_text, topic="Cloud Observability", audience="DevOps")
     assert res.passed is True
+
+
+def test_validate_ai_content():
+    human_text = (
+        "We built this distributed system to handle high throughput during flash sales. "
+        "It was messy at first. We spent three weeks debugging a race condition in Redis before "
+        "eventually switching to PostgreSQL for atomic transactions. Don't make the same mistake we made."
+    )
+    res = validate_ai_content(human_text, content_id="test-human")
+    assert "Human" in res.score_or_metric
+
+    formulaic_ai_text = (
+        "In the ever-evolving landscape of modern technology, it is crucial to delve into the tapestry "
+        "of autonomous systems. Furthermore, this serves as a testament to innovation, unlocking the potential "
+        "of digital transformation. In conclusion, navigating the landscape plays a pivotal role."
+    )
+    res_ai = validate_ai_content(formulaic_ai_text, content_id="test-ai")
+    assert "AI" in res_ai.score_or_metric
+    assert res_ai.passed is False
+

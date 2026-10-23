@@ -1,6 +1,9 @@
 """FastAPI application entrypoint for the autonomous content-agent prototype."""
 
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -181,11 +184,11 @@ HTML_CONTENT = r"""<!DOCTYPE html>
     /* Autonomous Decision Cards */
     .agent-decisions {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1fr 1fr 1fr;
       gap: 12px;
       margin-bottom: 16px;
     }
-    @media (max-width: 700px) { .agent-decisions { grid-template-columns: 1fr; } }
+    @media (max-width: 900px) { .agent-decisions { grid-template-columns: 1fr; } }
     .decision-card {
       background: #0f172a;
       border: 1px solid var(--border);
@@ -397,6 +400,13 @@ HTML_CONTENT = r"""<!DOCTYPE html>
                 <span id="qualityRetriesText" style="font-size:0.75rem; color:#94a3b8; float:right;">Iterations: 0/2</span>
                 <p id="qualityRationaleText">Passed all mandatory quality gates.</p>
               </div>
+
+              <div class="decision-card">
+                <h4>3. AI Detector & Human Likeness</h4>
+                <span id="aiDecisionBadge" class="decision-tag tag-approve">HUMAN CONTENT</span>
+                <span id="aiScoreMetricText" style="font-size:0.75rem; color:#94a3b8; float:right;">Analyzing...</span>
+                <p id="aiRationaleText">Evaluating sentence burstiness and artificial cadence.</p>
+              </div>
             </div>
 
             <!-- Tabs Header & Export Button -->
@@ -564,6 +574,16 @@ HTML_CONTENT = r"""<!DOCTYPE html>
         badge.className = 'decision-tag ' + (run.quality_decision.action === 'export' ? 'tag-approve' : (run.quality_decision.action === 'terminate_failure' ? 'tag-failure' : 'tag-revise'));
         document.getElementById('qualityRetriesText').textContent = `Iterations: ${run.quality_iteration_count}/2`;
         document.getElementById('qualityRationaleText').textContent = run.quality_decision.rationale;
+      }
+
+      // AI Content & Human Likeness Gate
+      const aiCheck = run.quality_checks.find(c => c.name.includes("AI Content"));
+      if (aiCheck) {
+        const aiBadge = document.getElementById('aiDecisionBadge');
+        aiBadge.textContent = aiCheck.passed ? 'HUMAN AUTHENTIC' : 'AI CADENCE DETECTED';
+        aiBadge.className = 'decision-tag ' + (aiCheck.passed ? 'tag-approve' : 'tag-revise');
+        document.getElementById('aiScoreMetricText').textContent = aiCheck.score_or_metric;
+        document.getElementById('aiRationaleText').textContent = aiCheck.details;
       }
 
       // Download Buttons (Automatic Export)

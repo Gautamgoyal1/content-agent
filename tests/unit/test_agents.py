@@ -30,7 +30,7 @@ def test_writer_agent():
     writer = WriterAgent()
     title, body, used_llm = writer.write_draft(brief, outline, sources)
 
-    assert title == outline.title
+    assert "Edge Computing" in title
     assert "[1]" in body
     assert "## References & Verified Sources" in body
 

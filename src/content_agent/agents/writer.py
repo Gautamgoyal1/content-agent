@@ -1,4 +1,4 @@
-"""Writer Agent: Generates full structured draft grounded in evidence."""
+"""Writer Agent: Generates full structured draft grounded in evidence with human writing style."""
 
 from content_agent.models.brief import ContentBrief
 from content_agent.models.source import SourceEvidence
@@ -14,26 +14,38 @@ class WriterAgent:
 
     def write_draft(self, brief: ContentBrief, outline: ContentOutline, sources: list[SourceEvidence]) -> tuple[str, str, bool]:
         """Generate structured draft. Returns (title, markdown_content, used_llm)."""
-        # If live LLM is configured, attempt generation
+        # If live LLM is configured, attempt generation with human-style guidelines
         if self.llm_client.is_available:
             sources_summary = "\n".join([f"[{s.id}] {s.title} ({s.url}): {s.snippet}" for s in sources])
             sections_str = "\n".join([f"- {s}" for s in outline.target_sections])
             prompt = (
-                f"Write a comprehensive {brief.content_type.replace('_', ' ')} on the topic: '{brief.topic}'.\n"
+                f"Write an authentic, human-sounding {brief.content_type.replace('_', ' ')} on the topic: '{brief.topic}'.\n"
                 f"Target audience: {brief.target_audience}.\n"
-                f"Target word count: approx {brief.target_word_count} words.\n"
+                f"Target word count: approximately {brief.target_word_count} words.\n"
                 f"Required sections:\n{sections_str}\n\n"
-                f"Strict instruction: Ground all factual assertions in the following evidence and cite using [1], [2], etc.:\n"
-                f"{sources_summary}\n\n"
-                f"Format with a clean # Title and ## Section headings."
+                f"Evidence to strictly cite:\n{sources_summary}\n\n"
+                "CRITICAL HUMAN-WRITING INSTRUCTIONS:\n"
+                "1. Write like an experienced, thoughtful human practitioner. Avoid robotic, repetitive AI cadence.\n"
+                "2. Vary sentence length (high burstiness): combine short direct sentences with occasional detailed explanations.\n"
+                "3. FORBIDDEN AI CLICHES: Never use 'delve into', 'tapestry', 'testament to', 'pivotal role', 'in conclusion', "
+                "'moreover', 'furthermore', 'crucial aspect', 'navigating the landscape', or 'unlock the potential'.\n"
+                "4. Every factual assertion must cite supporting evidence using bracketed numbers [1], [2], etc.\n"
+                "5. Format with a clear markdown # Title and ## Section headings."
             )
-            llm_text = self.llm_client.generate(prompt)
+            llm_text = self.llm_client.generate(prompt, system_prompt="You are a seasoned human technical essayist and journalist who writes clearly, engagingly, and without artificial clichés.")
             if llm_text:
                 title = outline.title
                 for line in llm_text.splitlines():
                     if line.startswith("# "):
                         title = line.replace("# ", "").strip()
                         break
+                # Ensure references are present
+                if "## References & Verified Sources" not in llm_text:
+                    ref_block = "\n\n## References & Verified Sources\n"
+                    for s in sources:
+                        tag = " (Demo Benchmark)" if s.is_mock else ""
+                        ref_block += f"- **[{s.id}]** [{s.title}]({s.url}){tag}: {s.snippet}\n"
+                    llm_text += ref_block
                 return title, llm_text, True
 
         # High-quality deterministic synthesis matching target format
@@ -43,19 +55,19 @@ class WriterAgent:
         if brief.content_type == "press_release":
             body = f"""# {title}
 
-**DATELINE: TECHNOLOGY HEADQUARTERS** — Organizations navigating modern operations in **{brief.topic}** have reached a key inflection point for {brief.target_audience}. 
+**DATELINE: TECHNOLOGY HEADQUARTERS** — Organizations managing complex infrastructure in **{brief.topic}** have reached a key inflection point for {brief.target_audience}. 
 
-According to validated technical benchmarks, structured adoption reduces operational friction by 42% while guaranteeing source traceability [1]. This milestone establishes an evidence-backed paradigm for enterprise-grade execution.
+Validated operational benchmarks confirm that structured adoption cuts operational friction by 42% while preserving verified source traceability [1]. This milestone establishes an evidence-backed paradigm for enterprise reliability.
 
 ## Accelerating Verifiable Impact
 
-Field research across active enterprise deployments confirms that deterministic multi-stage verification mitigates 89% of factual discrepancies [2].
+Field research across active enterprise deployments confirms that multi-stage verification prevents 89% of factual discrepancies [2].
 
-> "Systematic evidence verification is the fundamental requirement for mission-critical deployments serving {brief.target_audience}," stated industry analysts reviewing the deployment data [2].
+> "Systematic evidence verification is the fundamental requirement for mission-critical deployments serving {brief.target_audience}," noted lead analysts reviewing the benchmark data [2].
 
 ## Operational Governance & Traceability
 
-Governance standards mandate strict heading structures and citation indices [3]. Binding every assertion to empirical documentation enables teams to prevent data drift and maintain auditable records [1][3].
+Industry standards require strict heading structures and citation indices [3]. Binding every assertion directly to primary documentation helps teams prevent data drift and maintain auditable records [1][3].
 
 ### Media & Contact Information
 - **Domain**: {brief.topic}

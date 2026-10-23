@@ -6,7 +6,7 @@ from content_agent.tools.embeddings import TextSimilarity
 
 
 def test_search_client_curated_fallback():
-    client = SearchClient(api_key=None)
+    client = SearchClient(force_offline=True)
     sources, is_live, explanation = client.search(query="Autonomous Agents", max_results=3)
     assert len(sources) == 3
     assert is_live is False

@@ -11,8 +11,13 @@ from content_agent.models.source import SourceEvidence
 class SearchClient:
     """Handles web search queries and gathers verified source evidence."""
 
-    def __init__(self, api_key: str | None = None):
-        self.api_key = api_key or os.getenv("TAVILY_API_KEY") or os.getenv("SEARCH_API_KEY")
+    def __init__(self, api_key: str | None = None, force_offline: bool = False):
+        if force_offline:
+            self.api_key = None
+        elif api_key is not None:
+            self.api_key = api_key if api_key != "" else None
+        else:
+            self.api_key = os.getenv("TAVILY_API_KEY") or os.getenv("SEARCH_API_KEY")
 
     def search(self, query: str, max_results: int = 3, existing_count: int = 0) -> tuple[list[SourceEvidence], bool, str]:
         """Perform search. Returns (sources, is_live, explanation)."""
