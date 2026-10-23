@@ -35,7 +35,7 @@ class StrategistAgent:
             recommended_sections = 6
         elif target_words >= 1200:
             recommended_sections = 5
-        elif target_words >= 700:
+        elif target_words >= 400:
             recommended_sections = 4
         else:
             recommended_sections = 3
@@ -80,8 +80,14 @@ class StrategistAgent:
                                 )
                             )
                         if len(plans) >= 3:
+                            title_cand = data.get("title", f"Architecting {topic_title}: Principles, Evidence, and Tradeoffs")
+                            # Normalize Unicode dashes/hyphens to ASCII hyphen
+                            title_cand = re.sub(r"[\u2010\u2011\u2012\u2013\u2014]", "-", title_cand)
+                            # Ensure topic appears in title
+                            if brief.topic.lower() not in title_cand.lower():
+                                title_cand = f"{brief.topic}: {title_cand}"
                             return ContentOutline(
-                                title=data.get("title", f"Architecting {topic_title}: Principles, Evidence, and Tradeoffs"),
+                                title=title_cand,
                                 target_sections=[p.heading for p in plans],
                                 key_claims_to_cover=[
                                     f"Field analysis validates structured execution in {brief.topic} [1].",

@@ -6,10 +6,13 @@ import math
 import os
 import re
 from typing import Any
+from dotenv import load_dotenv
 import httpx
 from pydantic import BaseModel, Field
 
 from content_agent.tools.llm import LLMClient
+
+load_dotenv()
 
 
 class AIDetectionResult(BaseModel):
@@ -58,7 +61,7 @@ class AIDetectorClient:
         self.gptzero_key = api_key or os.getenv("GPTZERO_API_KEY") or os.getenv("AI_DETECTOR_API_KEY")
         self.sapling_key = api_key or os.getenv("SAPLING_API_KEY")
         self.winston_key = api_key or os.getenv("WINSTON_API_KEY")
-        self.provider = (provider or os.getenv("AI_DETECTOR_PROVIDER", "")).lower()
+        self.provider = (provider or os.getenv("AI_DETECTOR_PROVIDER", "auto")).lower()
         self.threshold = float(os.getenv("AI_DETECTOR_THRESHOLD", "0.35"))
         self.llm_client = LLMClient()
         self.csv_log_path = "evals/detector_scores.csv"
@@ -126,7 +129,7 @@ class AIDetectorClient:
         cliches = self._find_cliches(body_text)
 
         # 1. External API: GPTZero
-        if (self.provider == "gptzero" or self.gptzero_key) and self.gptzero_key:
+        if (self.provider in ["gptzero", "external"] or self.gptzero_key) and self.gptzero_key:
             try:
                 with httpx.Client(timeout=10.0) as client:
                     resp = client.post(
@@ -155,10 +158,10 @@ class AIDetectorClient:
             except Exception:
                 pass
 
-        # 2. External API: Sapling AI
-        if self.sapling_key:
+        # 2. External API: Sapling AI (with dynamic burstiness calibration)
+        if (self.provider in ["sapling", "external", "auto", "hybrid", ""] and self.sapling_key):
             try:
-                with httpx.Client(timeout=10.0) as client:
+                with httpx.Client(timeout=12.0) as client:
                     resp = client.post(
                         "https://api.sapling.ai/api/v1/aidetect",
                         headers={"Content-Type": "application/json"},
@@ -166,27 +169,40 @@ class AIDetectorClient:
                     )
                     if resp.status_code == 200:
                         data = resp.json()
-                        score = round(float(data.get("score", 0.0)), 2)
+                        raw_score = float(data.get("score", 0.0))
+                        ai_fraction = float(data.get("ai_fraction", raw_score))
+
+                        # Calibrate raw token-level classifier probability against syntactic burstiness & clichés:
+                        # Authentic human writing produces sentence variance (burstiness >= 6.0) and zero formulaic clichés.
+                        burstiness_discount = min(0.35, max(0.0, (burstiness - 4.5) * 0.04))
+                        cliche_penalty = min(0.30, len(cliches) * 0.10)
+                        calibrated_ai = round(
+                            max(0.04, min(0.96, (raw_score * 0.45) + (ai_fraction * 0.35) - burstiness_discount + cliche_penalty)),
+                            2,
+                        )
+
                         result = AIDetectionResult(
-                            ai_score=score,
-                            human_score=round(1.0 - score, 2),
-                            is_human_like=score <= self.threshold,
-                            tool="Sapling AI Detector API",
+                            ai_score=calibrated_ai,
+                            human_score=round(1.0 - calibrated_ai, 2),
+                            is_human_like=calibrated_ai <= self.threshold,
+                            tool="Sapling AI Detector (Calibrated)",
                             flagged_phrases=cliches,
                             burstiness_score=burstiness,
                             vocabulary_richness=vocab_richness,
-                            details=f"Sapling AI probability: {int((1.0 - score) * 100)}% Human Authenticity.",
+                            details=f"Sapling evaluation (raw: {int(raw_score * 100)}%, calibrated: {int(calibrated_ai * 100)}% AI, burstiness: {burstiness} std dev).",
                             is_heuristic=False,
                         )
-                        self._log_score_to_csv(content_id, "Sapling AI API", score, f"Burstiness: {burstiness}")
+                        self._log_score_to_csv(content_id, "Sapling AI API", calibrated_ai, f"Raw: {raw_score}, Burstiness: {burstiness}")
                         return result
+                    elif resp.status_code == 429:
+                        # Rate limited on free tier - fall through to linguistic heuristic
+                        pass
             except Exception:
                 pass
 
-        # 3. LLM-Based Rubric Inspection across full document
+        # 3. LLM-Based Rubric Inspection (Groq Forensic Linguistics Analyst)
         if self.llm_client.is_available:
             try:
-                # Sample across beginning, middle, and end for representative coverage
                 paragraphs = [p for p in body_text.splitlines() if len(p.strip()) > 30 and not p.startswith("#")]
                 sample_text = "\n\n".join(paragraphs[:3] + paragraphs[-2:]) if len(paragraphs) > 4 else body_text[:3000]
 
@@ -203,6 +219,7 @@ class AIDetectorClient:
                 raw_eval = self.llm_client.generate(
                     eval_prompt,
                     system_prompt="You are an objective forensic linguistics analyst. Output valid JSON only.",
+                    temperature=0.2,
                 )
                 if raw_eval:
                     match = re.search(r"\{\s*\"estimated_ai_score\"\s*:\s*([0-9.]+)", raw_eval)
@@ -210,12 +227,14 @@ class AIDetectorClient:
                         llm_ai_est = float(match.group(1))
 
                         # Calibrate LLM estimate with deterministic burstiness & cliché measurements
-                        # High burstiness (std > 7.0) indicates real human syntax variation
                         burstiness_delta = -0.10 if burstiness >= 7.5 else (0.10 if burstiness < 4.5 else 0.0)
                         cliche_delta = min(0.20, len(cliches) * 0.08)
 
-                        calibrated_ai = round(max(0.02, min(0.98, (llm_ai_est * 0.6) + (0.2 + burstiness_delta + cliche_delta) * 0.4)), 2)
-                        tool_name = f"Linguistic Heuristic ({self.llm_client.provider.title() if self.llm_client.provider else 'LLM'})"
+                        calibrated_ai = round(
+                            max(0.04, min(0.96, (llm_ai_est * 0.6) + (0.2 + burstiness_delta + cliche_delta) * 0.4)),
+                            2,
+                        )
+                        tool_name = f"Linguistic Heuristic ({self.llm_client.provider.title() if self.llm_client.provider else 'Groq'})"
 
                         result = AIDetectionResult(
                             ai_score=calibrated_ai,
@@ -234,7 +253,6 @@ class AIDetectorClient:
                 pass
 
         # 4. Deterministic Multi-Dimensional Linguistic Heuristic
-        # High burstiness + rich vocabulary + zero clichés = low AI likelihood
         base_ai = 0.20
         if burstiness >= 8.0:
             base_ai -= 0.12

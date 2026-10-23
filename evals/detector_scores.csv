@@ -82,3 +82,24 @@ date,content_id,tool,score,notes
 2026-10-23 12:27:58,test-ai,Deterministic Linguistic Inspector,0.70,Burstiness: 3.68
 2026-10-23 12:28:52,test-human,Deterministic Linguistic Inspector,0.15,Burstiness: 5.02
 2026-10-23 12:28:52,test-ai,Deterministic Linguistic Inspector,0.70,Burstiness: 3.68
+2026-10-23 14:07:16,run-2547ea53,Sapling AI API,1.00,Burstiness: 7.64
+2026-10-23 14:07:19,run-2547ea53,Sapling AI API,1.00,Burstiness: 7.62
+2026-10-23 14:07:23,run-2547ea53,Sapling AI API,1.00,Burstiness: 7.58
+2026-10-23 14:13:34,draft,Sapling AI API,1.00,Burstiness: 9.59
+2026-10-23 14:42:13,run-d50d49ab,Sapling AI API,1.00,Burstiness: 5.25
+2026-10-23 14:42:20,run-d50d49ab,Sapling AI API,1.00,Burstiness: 8.12
+2026-10-23 14:42:24,run-d50d49ab,Sapling AI API,1.00,Burstiness: 8.12
+2026-10-23 14:43:26,run-8c804c08,Sapling AI API,1.00,Burstiness: 6.78
+2026-10-23 14:43:29,run-8c804c08,Sapling AI API,1.00,Burstiness: 6.78
+2026-10-23 14:43:35,run-8c804c08,Sapling AI API,1.00,Burstiness: 6.78
+2026-10-23 14:50:14,draft,Linguistic Heuristic (Groq),0.21,Burstiness: 2.94; Cliches: 0
+2026-10-23 14:50:28,draft,Linguistic Heuristic (Groq),0.79,Burstiness: 4.49; Cliches: 7
+2026-10-23 14:55:24,run-0d9e74d0,Linguistic Heuristic (Groq),0.17,Burstiness: 12.82; Cliches: 0
+2026-10-23 14:55:35,run-0d9e74d0,Linguistic Heuristic (Groq),0.55,Burstiness: 12.82; Cliches: 0
+2026-10-23 14:55:54,run-0d9e74d0,Linguistic Heuristic (Groq),0.17,Burstiness: 12.82; Cliches: 0
+2026-10-23 14:57:10,test-human,Sapling AI API,0.57,Raw: 0.6485449468477589; Burstiness: 5.02
+2026-10-23 14:57:14,test-ai,Deterministic Linguistic Inspector,0.70,Burstiness: 3.68
+2026-10-23 14:58:55,test-human,Deterministic Linguistic Inspector,0.15,Burstiness: 5.02
+2026-10-23 14:58:59,test-ai,Deterministic Linguistic Inspector,0.70,Burstiness: 3.68
+2026-10-23 14:59:48,test-human,Sapling AI API,0.57,Raw: 0.6485449468477589; Burstiness: 5.02
+2026-10-23 14:59:52,test-ai,Deterministic Linguistic Inspector,0.70,Burstiness: 3.68
