@@ -31,6 +31,7 @@ from content_agent.validators.url_check import validate_citations
 from content_agent.validators.duplicate_claims import validate_duplicate_claims
 from content_agent.validators.keyword_placement import validate_keyword_placement
 from content_agent.validators.ai_detector import validate_ai_content
+from content_agent.validators.editorial_quality import audit_editorial_quality
 
 
 # Agent instances
@@ -252,7 +253,13 @@ def node_qa_auditor(state: ContentAgentState) -> dict:
     run_id = state.get("run_id", "run-audit")
     checks.append(validate_ai_content(draft, content_id=run_id))
 
+    # 8. Multi-Criteria Editorial Quality & Depth Gates
+    editorial_checks = audit_editorial_quality(draft, brief, sources)
+    checks.extend(editorial_checks)
+
     passed_count = sum(1 for c in checks if c.passed)
+    failed_items = [f"{c.name}: {c.details}" for c in checks if not c.passed]
+
     log.append(
         f"[QA Auditor] Executed {len(checks)} quality gates: {passed_count} passed, "
         f"{len(checks) - passed_count} warnings/failures."
@@ -260,6 +267,7 @@ def node_qa_auditor(state: ContentAgentState) -> dict:
 
     return {
         "quality_checks": checks,
+        "qa_feedback_items": failed_items,
         "actual_word_count": len(draft.split()),
         "execution_log": log,
     }
@@ -321,18 +329,31 @@ def node_quality_decision_agent(state: ContentAgentState) -> dict:
                     action="export",
                     rationale="Non-critical heading warning retained after max retries. Allowing export with annotation.",
                 )
-        elif "AI Content & Human Likeness" in check_names:
+        elif any("AI Content" in name for name in check_names):
             if iter_count < max_retries:
                 decision = QualityDecision(
                     action="invoke_editor",
-                    rationale="AI content detector detected high artificial likelihood. Invoking editor to humanize cadence and remove clichés.",
-                    target_issues=["AI Content & Human Likeness"],
-                    action_description="Humanizing prose and breaking robotic cadence.",
+                    rationale="AI likeness heuristic detected elevated artificial cadence. Invoking editor for targeted human cadence polish.",
+                    target_issues=["AI Content & Human Likeness Heuristic"],
+                    action_description="Polishing sentence burstiness and removing formulaic phrases.",
                 )
             else:
                 decision = QualityDecision(
                     action="export",
-                    rationale=f"Humanizing revisions applied ({iter_count} cycles). Proceeding with diagnostic detector score.",
+                    rationale=f"Editorial polish completed ({iter_count} cycles). Retaining diagnostic heuristic score and proceeding to export.",
+                )
+        elif "Transitions & Sentence Clarity" in check_names or "Depth of Analysis & Tradeoffs" in check_names:
+            if iter_count < max_retries:
+                decision = QualityDecision(
+                    action="invoke_editor",
+                    rationale="Editorial audit identified weak transitions or surface-level analysis. Invoking editor to deepen arguments.",
+                    target_issues=["Transitions & Sentence Clarity"],
+                    action_description="Refining analytical depth and striking formulaic transitions.",
+                )
+            else:
+                decision = QualityDecision(
+                    action="export",
+                    rationale=f"Editorial revision budget reached ({iter_count} cycles). Approving document with transparent quality metrics.",
                 )
         elif "Word Count Target" in check_names:
             if iter_count < max_retries:
@@ -385,14 +406,23 @@ def route_quality_decision(state: ContentAgentState) -> str:
 # ---------------------------------------------------------------------------
 def node_editor(state: ContentAgentState) -> dict:
     draft = state.get("draft_markdown", "")
+    prev_draft = state.get("previous_draft")
+    feedback = state.get("qa_feedback_items", [])
     brief = state["brief"]
     iter_count = state.get("quality_iteration_count", 0) + 1
     log = list(state.get("execution_log", []))
 
-    updated_draft = editor.polish_draft(draft_markdown=draft, brief=brief, iteration_count=iter_count)
-    log.append(f"[Editor] Polished draft (Iteration {iter_count}): Adjusted length and reinforced citations.")
+    updated_draft = editor.polish_draft(
+        draft_markdown=draft,
+        brief=brief,
+        iteration_count=iter_count,
+        feedback_items=feedback,
+        previous_draft=prev_draft,
+    )
+    log.append(f"[Editor] Polished draft (Iteration {iter_count}): Targeted phrase refinement and cadence enhancement.")
 
     return {
+        "previous_draft": draft,
         "draft_markdown": updated_draft,
         "quality_iteration_count": iter_count,
         "execution_log": log,

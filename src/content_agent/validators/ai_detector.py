@@ -11,21 +11,23 @@ def validate_ai_content(markdown_text: str, content_id: str = "run") -> QualityC
 
     human_pct = int(result.human_score * 100)
     ai_pct = int(result.ai_score * 100)
+    label_prefix = "Heuristic: " if result.is_heuristic else "API: "
+
+    cliches_note = f" Flagged clichés: {', '.join(result.flagged_phrases)}." if result.flagged_phrases else " Zero flagged clichés."
 
     if result.is_human_like:
         return QualityCheckResult(
-            name="AI Content & Human Likeness",
+            name="AI Content & Human Likeness Heuristic",
             passed=True,
-            score_or_metric=f"{human_pct}% Human / {ai_pct}% AI ({result.tool})",
-            details=f"Authentic natural phrasing verified. Burstiness score: {result.burstiness_score}.",
+            score_or_metric=f"{human_pct}% Human / {ai_pct}% AI ({label_prefix}{result.tool})",
+            details=f"Authentic natural cadence verified (burstiness: {result.burstiness_score} std dev, lexical diversity: {result.vocabulary_richness}).{cliches_note}",
             severity="info",
         )
 
-    cliche_notice = f" Flagged clichés: {', '.join(result.flagged_phrases)}." if result.flagged_phrases else ""
     return QualityCheckResult(
-        name="AI Content & Human Likeness",
+        name="AI Content & Human Likeness Heuristic",
         passed=False,
-        score_or_metric=f"{ai_pct}% AI Likelihood / {human_pct}% Human ({result.tool})",
-        details=f"Elevated AI content detected (threshold: <= 35% AI).{cliche_notice} Recommend humanizing cadence.",
+        score_or_metric=f"{ai_pct}% AI Likelihood / {human_pct}% Human ({label_prefix}{result.tool})",
+        details=f"Elevated AI cadence detected (threshold: <= {int(client.threshold * 100)}% AI). Burstiness: {result.burstiness_score}.{cliches_note} Recommend humanizing cadence.",
         severity="warning",
     )

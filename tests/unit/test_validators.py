@@ -8,6 +8,8 @@ from content_agent.validators.url_check import validate_citations
 from content_agent.validators.duplicate_claims import validate_duplicate_claims
 from content_agent.validators.keyword_placement import validate_keyword_placement
 from content_agent.validators.ai_detector import validate_ai_content
+from content_agent.validators.editorial_quality import audit_editorial_quality
+from content_agent.models.brief import ContentBrief
 
 
 def test_validate_word_count():
@@ -101,4 +103,23 @@ def test_validate_ai_content():
     res_ai = validate_ai_content(formulaic_ai_text, content_id="test-ai")
     assert "AI" in res_ai.score_or_metric
     assert res_ai.passed is False
+
+
+def test_audit_editorial_quality():
+    sources = [SourceEvidence(id=1, title="S1", url="http://example.com/1", snippet="snip 1")]
+    brief = ContentBrief(topic="Kubernetes Reliability", content_type="blog", target_word_count=400)
+
+    good_text = (
+        "# Kubernetes Reliability\n\n"
+        "## Practical Reality\n"
+        "Managing distributed pods incurs distinct architectural friction and operational tradeoffs [1].\n\n"
+        "## Benchmark Evidence\n"
+        "Controlled trials show that mitigating failure modes and network latency overhead requires strict limits [1].\n"
+    )
+
+    results = audit_editorial_quality(good_text, brief, sources)
+    assert len(results) == 3
+    assert any("Depth of Analysis" in r.name and r.passed for r in results)
+    assert any("Section Evidence Grounding" in r.name and r.passed for r in results)
+
 

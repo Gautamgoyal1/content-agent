@@ -402,10 +402,10 @@ HTML_CONTENT = r"""<!DOCTYPE html>
               </div>
 
               <div class="decision-card">
-                <h4>3. AI Detector & Human Likeness</h4>
-                <span id="aiDecisionBadge" class="decision-tag tag-approve">HUMAN CONTENT</span>
+                <h4>3. AI-Likeness Heuristic (Experimental)</h4>
+                <span id="aiDecisionBadge" class="decision-tag tag-approve">AUTHENTIC CADENCE</span>
                 <span id="aiScoreMetricText" style="font-size:0.75rem; color:#94a3b8; float:right;">Analyzing...</span>
-                <p id="aiRationaleText">Evaluating sentence burstiness and artificial cadence.</p>
+                <p id="aiRationaleText">Evaluates sentence length burstiness, vocabulary richness, and formulaic phrases.</p>
               </div>
             </div>
 
@@ -580,7 +580,7 @@ HTML_CONTENT = r"""<!DOCTYPE html>
       const aiCheck = run.quality_checks.find(c => c.name.includes("AI Content"));
       if (aiCheck) {
         const aiBadge = document.getElementById('aiDecisionBadge');
-        aiBadge.textContent = aiCheck.passed ? 'HUMAN AUTHENTIC' : 'AI CADENCE DETECTED';
+        aiBadge.textContent = aiCheck.passed ? 'AUTHENTIC CADENCE' : 'AI CADENCE DETECTED';
         aiBadge.className = 'decision-tag ' + (aiCheck.passed ? 'tag-approve' : 'tag-revise');
         document.getElementById('aiScoreMetricText').textContent = aiCheck.score_or_metric;
         document.getElementById('aiRationaleText').textContent = aiCheck.details;
@@ -610,11 +610,31 @@ HTML_CONTENT = r"""<!DOCTYPE html>
 
       // Tab 2: Render Outline
       if (run.outline) {
-        let outlineHtml = `<h2>${run.outline.title}</h2><p><strong>Estimated Word Count:</strong> ${run.outline.estimated_word_count}</p><h3 style="margin-top:14px;">Target Sections:</h3><ul>`;
-        run.outline.target_sections.forEach(s => { outlineHtml += `<li>${s}</li>`; });
-        outlineHtml += `</ul><h3 style="margin-top:14px;">Key Claims to Cover:</h3><ul>`;
-        run.outline.key_claims_to_cover.forEach(c => { outlineHtml += `<li>${c}</li>`; });
-        outlineHtml += `</ul><h3 style="margin-top:14px;">Mapped Sources:</h3><p>Sources [${run.outline.source_ids_referenced.join(', ')}]</p>`;
+        let outlineHtml = `<h2>${run.outline.title}</h2>`;
+        if (run.outline.angle_or_thesis) {
+          outlineHtml += `<p style="margin-bottom:12px; color:#38bdf8;"><strong>Editorial Thesis:</strong> ${run.outline.angle_or_thesis}</p>`;
+        }
+        outlineHtml += `<p><strong>Estimated Word Count:</strong> ${run.outline.estimated_word_count}</p>`;
+
+        if (run.outline.section_plans && run.outline.section_plans.length) {
+          outlineHtml += `<h3 style="margin-top:14px;">Evidence-Based Section Architecture:</h3><div style="display:flex; flex-direction:column; gap:8px; margin-top:8px;">`;
+          run.outline.section_plans.forEach((sp, idx) => {
+            outlineHtml += `
+              <div style="background:#1e293b; padding:10px 14px; border-radius:6px; border:1px solid #334155;">
+                <strong style="color:#93c5fd;">${idx + 1}. ${sp.heading}</strong> (~${sp.estimated_words} words)
+                <p style="font-size:0.85rem; color:#cbd5e1; margin-top:4px;"><strong>Objective:</strong> ${sp.purpose}</p>
+                <div style="font-size:0.75rem; color:#94a3b8; margin-top:4px;">Assigned Sources: [${sp.assigned_source_ids.join(', ')}]</div>
+              </div>
+            `;
+          });
+          outlineHtml += `</div>`;
+        } else {
+          outlineHtml += `<h3 style="margin-top:14px;">Target Sections:</h3><ul>`;
+          run.outline.target_sections.forEach(s => { outlineHtml += `<li>${s}</li>`; });
+          outlineHtml += `</ul>`;
+        }
+
+        outlineHtml += `<h3 style="margin-top:14px;">Mapped Sources:</h3><p>Sources [${run.outline.source_ids_referenced.join(', ')}]</p>`;
         document.getElementById('outlineRender').innerHTML = outlineHtml;
       }
 

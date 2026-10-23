@@ -18,6 +18,8 @@ class ContentAgentState(TypedDict, total=False):
     outline_revision_count: int
     max_outline_retries: int
     draft_markdown: str
+    previous_draft: str | None
+    qa_feedback_items: list[str] | None
     title: str
     actual_word_count: int
     quality_checks: list[QualityCheckResult]

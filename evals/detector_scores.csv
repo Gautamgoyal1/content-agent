@@ -41,3 +41,30 @@ date,content_id,tool,score,notes
 2026-10-23 11:21:48,test-ai,Linguistic AI Inspector (Groq),0.85,Burstiness: 3.68; Cliches: 9
 2026-10-23 11:22:37,test-human,Linguistic Burstiness Inspector,0.20,Burstiness: 5.02
 2026-10-23 11:22:37,test-ai,Linguistic Burstiness Inspector,0.80,Burstiness: 3.68
+2026-10-23 11:25:16,run-00e67438,Linguistic AI Inspector (Groq),0.68,Burstiness: 8.6; Cliches: 0
+2026-10-23 11:25:21,run-00e67438,Linguistic AI Inspector (Groq),0.48,Burstiness: 8.33; Cliches: 0
+2026-10-23 11:25:27,run-00e67438,Linguistic AI Inspector (Groq),0.55,Burstiness: 6.85; Cliches: 0
+2026-10-23 11:29:55,run-cc1372d7,Linguistic AI Inspector (Groq),0.65,Burstiness: 9.35; Cliches: 0
+2026-10-23 11:30:01,run-cc1372d7,Linguistic AI Inspector (Groq),0.45,Burstiness: 10.19; Cliches: 0
+2026-10-23 11:30:05,run-cc1372d7,Linguistic AI Inspector (Groq),0.45,Burstiness: 12.53; Cliches: 0
+2026-10-23 11:42:48,test-human,Deterministic Linguistic Inspector,0.15,Burstiness: 5.02
+2026-10-23 11:42:48,test-ai,Deterministic Linguistic Inspector,0.70,Burstiness: 3.68
+2026-10-23 11:44:24,run-859c1230,Deterministic Linguistic Inspector,0.09,Burstiness: 6.97
+2026-10-23 11:44:43,run-7a7fe825,Deterministic Linguistic Inspector,0.15,Burstiness: 5.19
+2026-10-23 11:44:56,run-6918c8c3,Deterministic Linguistic Inspector,0.09,Burstiness: 7.77
+2026-10-23 11:45:13,run-2abd319d,Deterministic Linguistic Inspector,0.15,Burstiness: 4.93
+2026-10-23 11:46:04,run-c21c17b6,Linguistic Heuristic (Groq),0.21,Burstiness: 4.89; Cliches: 0
+2026-10-23 11:46:06,run-c21c17b6,Deterministic Linguistic Inspector,0.15,Burstiness: 5.27
+2026-10-23 11:46:08,run-c21c17b6,Deterministic Linguistic Inspector,0.15,Burstiness: 5.44
+2026-10-23 11:46:09,run-c21c17b6,Deterministic Linguistic Inspector,0.15,Burstiness: 5.44
+2026-10-23 11:46:28,run-44c7b13d,Deterministic Linguistic Inspector,0.09,Burstiness: 7.68
+2026-10-23 11:46:28,run-44c7b13d,Deterministic Linguistic Inspector,0.09,Burstiness: 7.68
+2026-10-23 11:46:45,run-4fdce512,Deterministic Linguistic Inspector,0.15,Burstiness: 5.89
+2026-10-23 11:46:45,run-4fdce512,Deterministic Linguistic Inspector,0.15,Burstiness: 5.89
+2026-10-23 11:47:40,run-046a6d9c,Deterministic Linguistic Inspector,0.35,Burstiness: 3.25
+2026-10-23 11:47:41,run-046a6d9c,Deterministic Linguistic Inspector,0.35,Burstiness: 4.47
+2026-10-23 11:47:51,run-5c27f318,Deterministic Linguistic Inspector,0.15,Burstiness: 5.19
+2026-10-23 11:48:05,run-761cc194,Deterministic Linguistic Inspector,0.09,Burstiness: 7.77
+2026-10-23 11:48:12,run-f4a087d2,Deterministic Linguistic Inspector,0.15,Burstiness: 4.93
+2026-10-23 11:48:16,test-human,Deterministic Linguistic Inspector,0.15,Burstiness: 5.02
+2026-10-23 11:48:17,test-ai,Deterministic Linguistic Inspector,0.70,Burstiness: 3.68
